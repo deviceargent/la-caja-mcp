@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: |
+          pip install pytest fastmcp
+          pip install "la-caja @ git+https://github.com/deviceargent/La-Caja.git@main"
+      - name: Suite (protocolo + integracion MCP + memoria)
+        run: PYTHONPATH=src python -m pytest tests -q
