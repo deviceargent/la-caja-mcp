@@ -1,9 +1,15 @@
-"""Servidor MCP del protocolo de debate. Un juego de tools, dos
-transportes: stdio (local) y streamable HTTP (remoto).
+"""Servidor MCP de la-caja-mcp: protocolo de debate + memoria de La Caja.
+Un juego de tools, dos transportes: stdio (local) y streamable HTTP
+(remoto).
 
-Las sesiones viven en memoria (prototipo). El log de eventos es el
-artefacto durable: una sesion se reconstruye con reproducir_sesion
+Las sesiones de debate viven en memoria (prototipo). El log de eventos
+es el artefacto durable: una sesion se reconstruye con reproducir_sesion
 replayando el log (disciplina de La Caja).
+
+Las tools de memoria consumen el paquete `la-caja` (repo A). Si no esta
+instalado, responden con error claro sin romper el server. La memoria es
+persistente si se pasa --caja-db <ruta> (o LA_CAJA_DB); sin eso, queda
+en memoria pura.
 
 Sobre el payload de mover(): es un string JSON con las claves que cada
 tipo espera:
@@ -20,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import threading
 import uuid
 
@@ -31,6 +38,34 @@ mcp = FastMCP("la-caja-debate")
 
 _sesiones: dict[str, Sesion] = {}
 _lock = threading.Lock()
+
+_caja_db: str | None = None
+_caja = None
+_caja_error: str | None = None
+
+
+def _get_caja():
+    """Instancia lazy de La Caja. Devuelve None con _caja_error seteado
+    si el paquete no esta instalado."""
+    global _caja, _caja_error
+    if _caja_error is not None:
+        return None
+    if _caja is None:
+        try:
+            from la_caja.core import LaCaja
+        except ImportError:
+            _caja_error = (
+                "la-caja no esta instalado (pip install la-caja). "
+                "Las tools de memoria quedan desactivadas."
+            )
+            return None
+        _caja = LaCaja(db_path=_caja_db)
+    return _caja
+
+
+def set_caja_db(ruta: str | None) -> None:
+    global _caja_db
+    _caja_db = ruta or os.environ.get("LA_CAJA_DB")
 
 
 def _get(sesion_id: str) -> Sesion:
@@ -139,6 +174,64 @@ def reproducir_sesion(claim: str, log: str) -> dict:
             return {"ok": False, "error": f"log JSON invalido: {e}"}
 
 
+@mcp.tool
+def procesar_consulta(texto: str) -> dict:
+    """Ingesta: procesa una consulta humana completa en La Caja
+    (tokeniza, normaliza a conceptos canonicos, filtra y crea/reforza
+    las burbujas del contexto). Devuelve los terminos procesados y los
+    eventos de la piscina."""
+    caja = _get_caja()
+    if caja is None:
+        return {"ok": False, "error": _caja_error}
+    with _lock:
+        return {"ok": True, **caja.procesar_consulta(texto)}
+
+
+@mcp.tool
+def declarar_relacion(a: str, b: str) -> dict:
+    """Declara una relacion entre dos terminos (co-ocurrencia explicita)
+    sin pasar por texto crudo. Util para scripting e integraciones."""
+    caja = _get_caja()
+    if caja is None:
+        return {"ok": False, "error": _caja_error}
+    with _lock:
+        eventos = caja.declarar_relacion(a, b)
+        return {"ok": True, "a": a, "b": b, "eventos": eventos}
+
+
+@mcp.tool
+def consultar(a: str, b: str) -> dict:
+    """Confianza de la relacion entre dos terminos: 1.0 observada,
+    0.5^puentes inferida por cierre transitivo, 0.0 sin relacion."""
+    caja = _get_caja()
+    if caja is None:
+        return {"ok": False, "error": _caja_error}
+    with _lock:
+        return {"ok": True, "a": a, "b": b, "confianza": caja.consultar(a, b)}
+
+
+@mcp.tool
+def contexto_primado(termino: str, presupuesto: int = 50) -> dict:
+    """Contexto asociativo de un termino para inyectar en un modelo:
+    las relaciones observadas primero, luego el vecindario de activacion,
+    acotado al presupuesto. Mecanismo separado de la navegacion."""
+    caja = _get_caja()
+    if caja is None:
+        return {"ok": False, "error": _caja_error}
+    with _lock:
+        return {"ok": True, "termino": termino, "primado": caja.contexto_primado(termino, presupuesto)}
+
+
+@mcp.tool
+def stats() -> dict:
+    """Dimensiones de la memoria: terminos, nodos, aristas."""
+    caja = _get_caja()
+    if caja is None:
+        return {"ok": False, "error": _caja_error}
+    with _lock:
+        return {"ok": True, **caja.stats()}
+
+
 app = mcp.http_app(transport="streamable-http")
 
 
@@ -153,7 +246,14 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--path", default=None)
+    parser.add_argument(
+        "--caja-db",
+        default=None,
+        help="ruta a la memoria persistente de La Caja (SQLite); si no, "
+        "en memoria pura (o LA_CAJA_DB)",
+    )
     args = parser.parse_args()
+    set_caja_db(args.caja_db)
     if args.transport == "stdio":
         mcp.run(transport="stdio")
     else:

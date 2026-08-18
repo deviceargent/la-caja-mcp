@@ -10,13 +10,14 @@ memoria; habla con el por API y expone la Caja a agentes.
   Claims, solicitud de interferencia, rondas con deadline, adjudicacion
   humana. Determinista y replayable (event-sourcing, misma disciplina que
   La Caja).
-- `src/la_caja_mcp/mcp_server.py` — servidor MCP con un solo juego de tools
-  y dos transportes (stdio local / streamable HTTP remoto).
+- `src/la_caja_mcp/mcp_server.py` — servidor MCP: tools del debate + tools
+  de memoria de La Caja (repo A, consumido por API), un solo juego de
+  tools y dos transportes (stdio local / streamable HTTP remoto).
 - `tests/` — mini-falsacion de la maquina de estados + integracion con
-  cliente MCP real por stdio.
+  cliente MCP real por stdio (debate y memoria).
 - `demo_debate.py` — demo del debate que cierra en consensus.
-- `smoke_http.py` — smoke test del transporte streamable HTTP (arranca el
-  server y lo ejercita un cliente remoto).
+- `smoke_http.py` — smoke test del transporte streamable HTTP.
+- `worker/` — host ASGI portable (uvicorn + Dockerfile) para el MCP remoto.
 
 ## Servidor MCP
 
@@ -30,11 +31,13 @@ la-caja-mcp --transport stdio
 la-caja-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
-Tools: `crear_sesion`, `mover`, `estado`, `ultimos_eventos`,
-`reproducir_sesion`. El payload de `mover` es JSON (ver docstring del
-modulo). `app = mcp.http_app(transport="streamable-http")` queda listo
-para hostear: ver `worker/` (host ASGI portable + Dockerfile). MCP
-remoto exige OAuth detras del endpoint.
+Debate: `crear_sesion`, `mover` (payload JSON), `estado`,
+`ultimos_eventos`, `reproducir_sesion`.
+Memoria (requiere `pip install la-caja`; repo A): `procesar_consulta`,
+`declarar_relacion`, `consultar`, `contexto_primado`, `stats`.
+
+La memoria es persistente con `--caja-db <ruta>` (SQLite, event-sourcing
+de La Caja) o `LA_CAJA_DB`; sin eso, en memoria pura.
 
 ## Transportes MCP (decision de arquitectura)
 
