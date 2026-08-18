@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +7,7 @@ name = "la-caja-mcp"
 version = "0.1.0"
 description = "Sistema MCP de acceso y debate sobre La Caja (memoria contextual). Repo B."
 requires-python = ">=3.10"
+license = "MIT"
 dependencies = ["fastmcp>=3"]
 
 [project.optional-dependencies]

@@ -66,3 +66,7 @@ sondeo con `ultimos_eventos`.
 ```
 $env:PYTHONPATH="src"; python -m pytest tests -q
 ```
+
+## Licencia
+
+MIT — ver [LICENSE](LICENSE).
