@@ -1,0 +1,34 @@
+name: La Caja Cloudflare MCP
+
+on:
+  push:
+    branches: [cloudflare-mcp, main]
+  pull_request:
+    branches: [cloudflare-mcp, main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp-cloudflare
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run smoke tests
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Validate Wrangler configuration
+        run: npm run deploy:dry

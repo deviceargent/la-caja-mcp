@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "la-caja-mcp",
+  "main": "mcp-cloudflare/src/index.ts",
+  "compatibility_date": "2026-08-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CAJA_STATE",
+        "class_name": "CajaState"
+      }
+    ]
+  },
+  "exports": {
+    "CajaState": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "observability": {
+    "enabled": true
+  }
+}
