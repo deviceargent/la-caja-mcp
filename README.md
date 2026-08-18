@@ -33,13 +33,15 @@ la-caja-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 Tools: `crear_sesion`, `mover`, `estado`, `ultimos_eventos`,
 `reproducir_sesion`. El payload de `mover` es JSON (ver docstring del
 modulo). `app = mcp.http_app(transport="streamable-http")` queda listo
-para que un host (p. ej. worker de Cloudflare) lo sirva con OAuth.
+para hostear: ver `worker/` (host ASGI portable + Dockerfile). MCP
+remoto exige OAuth detras del endpoint.
 
 ## Transportes MCP (decision de arquitectura)
 
 - Local = `stdio` (el agente lanza el server como subproceso).
 - Remoto = **streamable HTTP** (unico standard para MCP remoto, + OAuth).
-- `worker/` es ejemplo de host desplegable; no hay MCP publico hosteado.
+- `worker/` es ejemplo de host desplegable (VPS/Docker); no hay MCP
+  publico hosteado.
 
 ## Probar
 
