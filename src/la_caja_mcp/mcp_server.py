@@ -285,6 +285,18 @@ async def contexto_primado(termino: str, presupuesto: int = 50) -> dict:
 
 
 @mcp.tool
+async def historial(termino: str) -> dict:
+    """Traza dormida del termino (capa inerte): los partners con los que
+    co-ocurrio y fue olvidado, con su fuerza historica. No interviene en
+    consultar ni en el primado."""
+    caja = _get_caja()
+    if caja is None:
+        return {"ok": False, "error": _caja_error}
+    async with _lock:
+        return {"ok": True, "termino": termino, "historial": caja.historial(termino)}
+
+
+@mcp.tool
 async def stats() -> dict:
     """Dimensiones de la memoria: terminos, nodos, aristas."""
     caja = _get_caja()

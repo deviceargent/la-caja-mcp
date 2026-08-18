@@ -57,6 +57,17 @@ def test_memoria_ingesta_consulta_y_primado():
     asyncio.run(run())
 
 
+def test_memoria_historial_expone_la_traza_dormida():
+    async def run():
+        async for session in _cliente():
+            r = await session.call_tool("procesar_consulta", {"texto": "el sol tiene masa"})
+            assert _texto(r)["ok"]
+
+            r = await session.call_tool("historial", {"termino": "sol"})
+            h = _texto(r)
+            assert h["ok"] and h["historial"] == [], "termino sin olvido: sin traza"
+
+
 def test_memoria_coocurrencias_separadas_no_inventan_puentes():
     async def run():
         async for session in _cliente():

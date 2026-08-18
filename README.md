@@ -34,7 +34,8 @@ la-caja-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 Debate: `crear_sesion`, `mover` (payload JSON), `estado`,
 `ultimos_eventos`, `reproducir_sesion`.
 Memoria (requiere `pip install la-caja`; repo A): `procesar_consulta`,
-`declarar_relacion`, `consultar`, `contexto_primado`, `stats`.
+`declarar_relacion`, `consultar`, `contexto_primado`, `historial`
+(traza dormida, capa inerte), `stats`.
 
 La memoria es persistente con `--caja-db <ruta>` (SQLite, event-sourcing
 de La Caja) o `LA_CAJA_DB`; sin eso, en memoria pura.
