@@ -14,7 +14,7 @@ memoria; habla con el por API y expone la Caja a agentes.
   de memoria de La Caja (repo A, consumido por API), un solo juego de
   tools y dos transportes (stdio local / streamable HTTP remoto).
 - `tests/` — mini-falsacion de la maquina de estados + integracion con
-  cliente MCP real por stdio (debate y memoria).
+  cliente MCP real por stdio (debate y memoria) + push SSE multiagente.
 - `demo_debate.py` — demo del debate que cierra en consensus.
 - `smoke_http.py` — smoke test del transporte streamable HTTP.
 - `worker/` — host ASGI portable (uvicorn + Dockerfile) para el MCP remoto.
@@ -38,6 +38,21 @@ Memoria (requiere `pip install la-caja`; repo A): `procesar_consulta`,
 
 La memoria es persistente con `--caja-db <ruta>` (SQLite, event-sourcing
 de La Caja) o `LA_CAJA_DB`; sin eso, en memoria pura.
+
+## Discusion en vivo (push)
+
+En streamable HTTP el server expone ademas un endpoint SSE:
+
+```
+GET /caja/push?sesion_id=<id>
+```
+
+Emite un evento `estado` (snapshot: `ultimo_seq` + `estado`) al conectar
+y luego un `sesion_actualizada` por cada `mover()` exitoso. Un agente se
+suscribe con una conexion HTTP aparte (cualquier stack) y usa
+`ultimos_eventos` para traer el detalle. Requiere server compartido: en
+stdio cada agente tiene su propio proceso, ahi la vivacidad es por
+sondeo con `ultimos_eventos`.
 
 ## Transportes MCP (decision de arquitectura)
 
