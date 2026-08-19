@@ -170,6 +170,46 @@ def test_estados_terminales_son_estables():
         s.mover("responder", "claude", defensa="d")
 
 
+def test_el_humano_puede_adjudicar_unresolved():
+    """El deadlock (escalar -> unresolved) NO es un callejon sin salida:
+    la docstring del modulo promete que el humano adjudica en cualquier
+    momento. unresolved es el unico terminal que el arbitro desbloquea;
+    consensus/rejected/superseded siguen cerrados."""
+    s = Sesion(claim="c", participantes=["a", "b", "humano"], arbitro="humano", limite_turnos=1)
+    s.mover("proponer", "a")
+    s.mover("interferir", "b", objecion="x")
+    s.mover("manifestar", "a", texto="turno del autor")
+    assert s.vence_en_turnos == 0
+    s.mover("escalar", "b")
+    assert s.estado == "unresolved"
+    # un no-arbitro no puede desbloquear el deadlock
+    with pytest.raises(ErrorDeProtocolo):
+        s.mover("adjudicar", "b", decision="consensus")
+    # el arbitro humano si, desde unresolved
+    s.mover("adjudicar", "humano", decision="consensus")
+    assert s.estado == "consensus"
+    # tras desbloquear, el terminal queda cerrado
+    with pytest.raises(ErrorDeProtocolo):
+        s.mover("adjudicar", "humano", decision="rejected")
+    # el log sigue siendo replayable
+    replay = Sesion.reproducir(s.log)
+    assert replay.estado == "consensus"
+    assert replay.log == s.log
+
+
+def test_adjudicar_unresolved_tambien_a_rejected():
+    s = Sesion(claim="c", participantes=["a", "b", "humano"], arbitro="humano", limite_turnos=1)
+    s.mover("proponer", "a")
+    s.mover("interferir", "b", objecion="x")
+    # turno del autor sin responder consume el deadline
+    s.mover("manifestar", "a", texto="sin novedades")
+    assert s.vence_en_turnos == 0
+    s.mover("escalar", "b")
+    assert s.estado == "unresolved"
+    s.mover("adjudicar", "humano", decision="rejected")
+    assert s.estado == "rejected"
+
+
 def test_supersede_desde_cualquier_estado():
     s = sesion_estandar()
     s.mover("proponer", "claude")

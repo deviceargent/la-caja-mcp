@@ -19,7 +19,9 @@ Solicitud de interferencia:
   responder renueva la ronda.
 - Si el deadline vence sin respuesta, escalar lleva el claim a unresolved
   (deadlock) y la palabra pasa al humano.
-- El humano (arbitro) puede adjudicar en cualquier momento.
+- El humano (arbitro) puede adjudicar en cualquier momento, incluso desde
+  unresolved (unresolved es el UNICO terminal que el humano puede
+  desbloquear; consensus/rejected/superseded son terminales cerrados).
 """
 
 from __future__ import annotations
@@ -56,6 +58,11 @@ MOVIMIENTOS = (
 )
 
 ESTADOS_TERMINALES = ("consensus", "rejected", "superseded", "unresolved")
+
+# El humano (arbitro) SI puede adjudicar unresolved: es el punto del
+# deadlock (la docstring del modulo lo promete: "el humano puede
+# adjudicar en cualquier momento"). Los otros terminales no se tocan.
+ESTADOS_NO_ADJUDICABLES = ("consensus", "rejected", "superseded")
 
 
 @dataclass
@@ -203,7 +210,7 @@ class Sesion:
         self._registrar("retirar", actor)
 
     def _adjudicar(self, actor: str, payload: dict[str, Any]) -> None:
-        if self.estado in ESTADOS_TERMINALES:
+        if self.estado in ESTADOS_NO_ADJUDICABLES:
             raise ErrorDeProtocolo("adjudicar sobre estado terminal")
         if self.arbitro is None:
             raise ErrorDeProtocolo("la sesion no tiene arbitro")

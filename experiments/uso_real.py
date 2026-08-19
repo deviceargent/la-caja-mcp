@@ -38,6 +38,8 @@ INGESTA = [
 
 CLAIM = "la migracion a postgres del servidor central es segura el sabado"
 
+CLAIM_INTERFERENCIA = "la ventana de escritura del sabado no afecta al backup nocturno"
+
 
 def _esperar_server(timeout: float = 15.0) -> None:
     req = urllib.request.Request(
@@ -187,11 +189,73 @@ async def main() -> None:
                         ok_push = any("event:" in e or "data:" in e for e in eventos_sse)
                         hilo.join(timeout=2)
 
+                        # Segundo escenario: solicitud de interferencia completa
+                        # con deadline. limite_turnos=1: una charla del autor
+                        # (manifestar, no responder/escalar) consume el deadline;
+                        # vence -> escalar -> unresolved -> el humano adjudica.
+                        r = await claude.call_tool(
+                            "crear_sesion",
+                            {
+                                "claim": CLAIM_INTERFERENCIA,
+                                "participantes": ["claude", "asesor", "humano"],
+                                "arbitro": "humano",
+                                "limite_turnos": 1,
+                            },
+                        )
+                        sid2 = _texto(r)["sesion_id"]
+
+                        eventos_sse2: list[str] = []
+                        hilo2 = _suscribirse_sse(sid2, eventos_sse2)
+                        time.sleep(0.5)
+
+                        for tipo, actor, payload in [
+                            ("proponer", "claude", "{}"),
+                            ("interferir", "asesor", '{"objecion": "la ventana de escritura corta la ventana del backup"}'),
+                            ("manifestar", "claude", '{"texto": "el plan mantiene el backup nocturno"}'),
+                        ]:
+                            r = await claude.call_tool("mover", {"sesion_id": sid2, "tipo": tipo, "actor": actor, "payload": payload})
+                            assert _texto(r)["ok"], _texto(r)
+
+                        r = await claude.call_tool("estado", {"sesion_id": sid2})
+                        estado2 = _texto(r)
+                        # tras manifestar del autor en disputed con limite 1,
+                        # vence_en_turnos debe haber bajado a 0 -> escalar valido
+                        r = await claude.call_tool("mover", {"sesion_id": sid2, "tipo": "escalar", "actor": "claude", "payload": "{}"})
+                        escalar = _texto(r)
+                        ok_escalar = escalar["ok"] and escalar["estado"]["estado"] == "unresolved"
+
+                        r = await claude.call_tool("mover", {"sesion_id": sid2, "tipo": "adjudicar", "actor": "humano", "payload": '{"decision": "consensus"}'})
+                        adjudicar = _texto(r)
+                        ok_adjudicar = adjudicar["ok"] and adjudicar["estado"]["estado"] == "consensus"
+
+                        r = await claude.call_tool("estado", {"sesion_id": sid2})
+                        estado_final2 = _texto(r)
+                        log2 = json.dumps(estado_final2["log"], ensure_ascii=False)
+                        r = await claude.call_tool("reproducir_sesion", {"claim": CLAIM_INTERFERENCIA, "log": log2})
+                        replay2 = _texto(r)
+                        ok_replay2 = replay2["ok"] and replay2["estado"]["estado"] == "consensus"
+
+                        time.sleep(0.5)
+                        ok_push2 = any("event:" in e or "data:" in e for e in eventos_sse2)
+                        hilo2.join(timeout=2)
+
+                        veredicto_interf = "FALSA" if not (
+                            ok_escalar and ok_adjudicar and ok_replay2 and ok_push2
+                        ) else "OK"
+
                         print(json.dumps({
                             "ok_memoria": ok_memoria,
                             "ok_debate": ok_debate,
                             "ok_replay": ok_replay,
                             "ok_push": ok_push,
+                            "solicitud_interferencia": {
+                                "ok_escalar": ok_escalar,
+                                "ok_adjudicar": ok_adjudicar,
+                                "ok_replay": ok_replay2,
+                                "ok_push": ok_push2,
+                                "vence_en_turnos_tras_manifestar": estado2["estado"].get("vence_en_turnos"),
+                                "veredicto": veredicto_interf,
+                            },
                             "tiempos": {"ingesta": round(t_ingesta, 2), "debate": round(t_debate, 2)},
                             "stats": {"claude": stats_claude["terminos"], "asesor": stats_asesor["terminos"]},
                             "primado_postgres": primado.get("primado", [])[:6],

@@ -10,6 +10,23 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-19 — solicitud de interferencia completa + fix de deadlock
+- El harness `experiments/uso_real.py` extendido al camino de la
+  solicitud de interferencia destapó una inconsistencia: la docstring de
+  `protocolo.py` promete que el humano adjudica "en cualquier momento"
+  tras `escalar` → `unresolved`, pero `_adjudicar` lo bloqueaba
+  (`unresolved` era terminal).
+- **Fix (decisión del autor, opción 1):** la docstring es la spec. El
+  humano ahora DESBLOQUEA `unresolved` (deadlock) por `adjudicar`;
+  `consensus`/`rejected`/`superseded` siguen cerrados
+  (`ESTADOS_NO_ADJUDICABLES`). Docstring actualizada, 2 tests nuevos,
+  suite B 29 → 31.
+- Harness re-corrido: `solicitud_interferencia` OK — ok_escalar
+  (deadline vence: vence_en_turnos 1→0 con la charla del autor),
+  ok_adjudicar (humano desbloquea a consensus), ok_replay, ok_push.
+  La solicitud de interferencia funciona de punta a punta por streamable
+  HTTP, no solo en el unit test.
+
 ### 2026-08-19 — caso de uso real: integración OK (primer uso en conjunto)
 - **Escenario de prueba en conjunto** (pre-registrado en A
   `experiments/falsacion.md`): dos agentes MCP (`claude` y `asesor`) con
