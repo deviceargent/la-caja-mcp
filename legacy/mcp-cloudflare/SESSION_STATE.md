@@ -10,6 +10,16 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-19 — ciclo de vida del workspace (decisión)
+- Este workspace de Cloudflare es, **por ahora, el journal de la
+  actividad del proyecto La Caja** (sistema de memoria, MCP, protocolo
+  nuevo y lo que surja).
+- Cuando se **termine todo lo relacionado con La Caja**, el workspace se
+  **extinguirá o se reutilizará para un proyecto independiente nuevo, no
+  relacionado** — la decisión se toma en ese momento, no antes.
+- Mientras tanto: journaling continuo; el worker sigue en operación
+  privada y NO se despliega el protocolo nuevo acá.
+
 ### 2026-08-19 — empaquetado, writeup, registro y decisión de deprecación
 - **Empaquetado real** en ambos repos (commit A `adb2523`, B `4970672`):
   `pyproject.toml` completo, wheel verificado en venv limpio
