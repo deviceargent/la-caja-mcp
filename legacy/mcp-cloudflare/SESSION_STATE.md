@@ -1,44 +1,63 @@
 # La Caja Cloudflare MCP — Session State
 
+## Estado operativo (actualizado 2026-08-19)
+
+- **Uso público: se depreca.** No prometer soporte público ni ampliar
+  esta implementación para consumo externo.
+- **Uso privado: EN OPERACIÓN.** El worker está desplegado y sirviendo
+  hoy. NO dar de baja hasta decisión explícita del proyecto.
+- **Estado real verificado (2026-08-19, `wrangler` autenticado):**
+  - Worker desplegado: `la-caja` (despliegues del 13/8 y 15/8; última
+    versión `b400a76e...`, creada 2026-08-15).
+  - URL: `https://la-caja.miguel-okstein.workers.dev`
+  - `/health` → `200 {"status":"ok"}`.
+  - `/mcp` → `401 Unauthorized` sin bearer token (autenticación por
+    token, como diseño).
+  - Secrets presentes: `CHATGPT_TOKEN`, `CLAUDE_TOKEN`, `HUMAN_TOKEN`,
+    `OAUTH_SIGNING_KEY` (y otros). Nunca commitear valores.
+
 ## Branch
 
-`cloudflare-mcp`
+`cloudflare-mcp` (historial del repo B, movido a `legacy/`).
 
 ## Baseline
 
-This branch starts from the green `mcp-deliberation-mvp` implementation. The original Python MCP remains the protocol reference.
+Esta implementación parte del `mcp-deliberation-mvp` verde. El MCP Python
+original sigue siendo la referencia del protocolo.
 
-## Current implementation
+## Implementación
 
-- TypeScript Cloudflare Worker.
-- MCP SDK v2 through `@modelcontextprotocol/server` and `agents/mcp/server`.
-- Streamable HTTP remote MCP endpoint at `/mcp`.
-- SQLite-backed Durable Object `CajaState`.
-- One private `default-workspace` instance for the current single-workspace decision.
-- Seven protocol operations preserved from the Python MVP.
-- Actor identity inferred from bearer token rather than accepting an arbitrary actor argument.
-- Separate token slots for `chatgpt`, `claude`, and `human`.
-- `/health` endpoint for basic deployment checks.
-- CI smoke tests, TypeScript typecheck, and Wrangler dry-run validation.
+- TypeScript Cloudflare Worker (`src/index.ts`).
+- MCP SDK v2 (`@modelcontextprotocol/server`, `agents/mcp/server`).
+- Streamable HTTP remote MCP en `/mcp`.
+- Durable Object `CajaState` con storage SQLite.
+- Workspace privado único `default-workspace`.
+- Siete operaciones de protocolo heredadas del MVP Python.
+- Identidad del actor inferida del bearer token (no del argumento).
+- Slots de token separados: `chatgpt`, `claude`, `human`.
+- `/health` para chequeo básico de despliegue.
+- CI smoke tests, typecheck TS y dry-run de Wrangler.
 
-## Authentication
+## Autenticación
 
-The current layer is deliberately bearer-token authentication, not provider-specific OAuth. Cloudflare secrets still need to be created before a public deployment is usable:
+Bearer-token (no OAuth provider-específico). Los secrets YA están creados
+y el worker responde 401 sin token válido.
 
-- `CHATGPT_TOKEN`
-- `CLAUDE_TOKEN`
-- `HUMAN_TOKEN`
+## Decisión de arquitectura importante
 
-Do not commit token values.
+Un solo workspace privado ahora, preservando identidad explícita de actor
+y frontera de workspace en el modelo de almacenamiento para un futuro
+multi-workspace sin descartar el protocolo.
 
-## Important architecture decision
+## Por qué no se basa en McpAgent
 
-We chose one private workspace now, while preserving explicit actor identity and a workspace boundary in the storage model so a future multi-workspace model does not require discarding the protocol.
+`McpAgent` está deprecado/frozen; la doc actual recomienda
+`createMcpHandler` con MCP SDK v2 para endpoints MCP stateless. El estado
+de la aplicación vive en el Durable Object, no en el estado de sesión MCP.
 
-## Why this implementation is not based on McpAgent
+## Próxima acción
 
-Current Cloudflare documentation marks `McpAgent` as deprecated/feature-frozen and recommends `createMcpHandler` with MCP SDK v2 for new stateless MCP endpoints. Application state is therefore kept explicitly in the Durable Object rather than in MCP protocol session state.
-
-## Next action
-
-Run GitHub Actions on this branch. Do not deploy until CI is green. If CI passes, return to the Cloudflare dashboard and configure the Worker build/deploy from this branch. Then create the three secrets and deploy. After deployment, test `/health` and the MCP endpoint before connecting Claude or ChatGPT.
+Ninguna inmediata: está desplegado y operativo para uso privado. Cuando
+se decida la baja definitiva, el orden será: (1) verificar que no haya
+consumidores activos, (2) `wrangler delete` del script, (3) borrar los
+secrets, (4) registrar la baja en este archivo.
