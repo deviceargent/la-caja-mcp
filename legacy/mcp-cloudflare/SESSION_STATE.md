@@ -10,6 +10,22 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-19 — base del protocolo validada en la práctica (LLM reales)
+- Harness `experiments/interrupcion_etapas.py` (B, la-caja-mcp): dos
+  agentes LLM reales (OpenRouter gpt-4o-mini) como clientes MCP. El
+  autor razona por etapas y expone cada conclusión con `manifestar` (el
+  medio de interrupción); entre etapa y etapa consulta el estado; el
+  interferente observa (`ultimos_eventos`), solicita `interferir` al
+  medio del razonamiento, y el autor **cede** respondiendo dentro de la
+  ronda.
+- Resultado: **OK**. Secuencia `proponer → manifestar → interferir →
+  responder → aceptar`. ok_etapas/interrupcion/cedio/consensus/replay
+  True; vence_en_turnos=2 (>0) al detectar la interrupción: el deadline
+  quedó intacto, el autor no ignoró ni escaló.
+- Conclusión: la base del protocolo (exponer medio + solicitar
+  interrupción + aceptarla) es viable en la práctica con LLM reales por
+  streamable HTTP, no solo en la máquina de estados (unit tests).
+
 ### 2026-08-19 — solicitud de interferencia completa + fix de deadlock
 - El harness `experiments/uso_real.py` extendido al camino de la
   solicitud de interferencia destapó una inconsistencia: la docstring de
