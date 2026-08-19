@@ -7,17 +7,38 @@ memoria; habla con el por API y expone la Caja a agentes.
 ## Que hay aca
 
 - `src/la_caja_mcp/protocolo.py` — protocolo de debate agente-agente-humano.
-  Claims, solicitud de interferencia, rondas con deadline, adjudicacion
-  humana. Determinista y replayable (event-sourcing, misma disciplina que
-  La Caja).
+  Claims, solicitud de interferencia, rondas con deadline en turnos,
+  escalada y adjudicacion humana. Determinista y replayable
+  (event-sourcing, misma disciplina que La Caja). La maquina de estados
+  es un contrato: en `disputed` el autor solo puede responder o escalar;
+  `unresolved` (deadlock) es el UNICO terminal que el humano puede
+  adjudicar.
 - `src/la_caja_mcp/mcp_server.py` — servidor MCP: tools del debate + tools
   de memoria de La Caja (repo A, consumido por API), un solo juego de
   tools y dos transportes (stdio local / streamable HTTP remoto).
-- `tests/` — mini-falsacion de la maquina de estados + integracion con
-  cliente MCP real por stdio (debate y memoria) + push SSE multiagente.
-- `demo_debate.py` — demo del debate que cierra en consensus.
-- `smoke_http.py` — smoke test del transporte streamable HTTP.
+- `tests/` — falsacion de la maquina de estados + integracion con cliente
+  MCP real por stdio (debate y memoria) + push SSE multiagente (31 tests).
+- `experiments/uso_real.py` — caso de uso real: dos agentes LLM como
+  clientes MCP (memoria compartida, debate, replay, push).
+- `experiments/interrupcion_etapas.py` — la base del protocolo: un agente
+  al medio del razonamiento acepta ser interrumpido y cede dentro de la
+  ronda.
 - `worker/` — host ASGI portable (uvicorn + Dockerfile) para el MCP remoto.
+
+## Validado con LLM reales (OpenRouter, gpt-4o-mini, por streamable HTTP)
+
+| Validación | Resultado |
+|---|---|
+| Caso de uso real (2 agentes MCP, memoria compartida) | **OK** — consensus, replay, push |
+| Solicitud de interferencia completa (deadline → escalar → humano) | **OK** |
+| **Interrupción al medio del razonamiento** | **OK** — `proponer → manifestar → interferir → responder → aceptar` |
+
+La base del protocolo funciona: el autor expone su razonamiento por
+etapas con `manifestar` (el medio de interrupción), consulta el estado
+entre etapas, el interferente solicita `interferir` al medio, y el
+interrumpido cede respondiendo dentro de la ronda (vence_en_turnos
+intacto). Detalle del diseño y sus límites en el writeup de La Caja
+(`experiments/writeup.md`, repo A).
 
 ## Instalación
 
@@ -89,6 +110,8 @@ sondeo con `ultimos_eventos`.
 
 ```
 $env:PYTHONPATH="src"; python -m pytest tests -q
+python experiments/uso_real.py                    # requiere OPENAI_API_KEY
+python experiments/interrupcion_etapas.py         # requiere OPENAI_API_KEY
 ```
 
 ## Licencia
