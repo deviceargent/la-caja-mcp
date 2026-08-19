@@ -10,6 +10,16 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-19 — independencia La-Caja / la-caja-mcp (decisión de arquitectura)
+- **Los dos proyectos siguen siendo independientes.** La-Caja (memoria)
+  y `la-caja-mcp` (protocolo) son repos separados, como hoy. El protocolo
+  consume la memoria como dependencia (`la-caja` package, `--caja-db`);
+  la memoria **nunca** dependerá del protocolo.
+- La integración actual es un **escenario de prueba en conjunto** (caso
+  de uso real: dos agentes con memoria compartida), NO un desarrollo en
+  conjunto. Si el protocolo deja de ser útil, la memoria no se ve
+  afectada, y viceversa.
+
 ### 2026-08-19 — ciclo de vida del workspace (decisión)
 - Este workspace de Cloudflare es, **por ahora, el journal de la
   actividad del proyecto La Caja** (sistema de memoria, MCP, protocolo
