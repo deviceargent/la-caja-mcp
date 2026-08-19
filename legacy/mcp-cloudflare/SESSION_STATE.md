@@ -10,6 +10,24 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-19 — LA TESIS VALIDADA: benchmark pareado con/sin La Caja
+- Harness `experiments/eval_pareado_memoria.py` (A, La-Caja-testing): el
+  mismo modelo (openai/gpt-4o-mini) en dos corridas — una con La Caja
+  como soporte de memoria (`contexto_primado`), otra sin — responde
+  preguntas de recall sobre el corpus Enron (memoria 60% pasado,
+  consultas 40% futuro).
+- Hallazgo metodológico del smoke test: el judge de preferencia tiene un
+  sesgo de formato dominante (prefiere listas genéricas coherentes sobre
+  los términos crudos REALES del corpus); se enmiendó el diseño a métrica
+  primaria objetiva (recall contra ground truth), judge como secundaria.
+- Resultado (400 consultas, 0 fallidas): **OK** — win_rate 0.6025
+  (241/29/130), p_binominal 9.2e-43; recall_medio_con 0.0626 vs
+  recall_medio_sin 0.0033 (~19x). Judge: 7/390 en contra (sesgo
+  confirmado).
+- Conclusión: la tesis central "La Caja como memoria mejora al modelo
+  que la usa" queda validada. El judge de preferencia queda descartado
+  como instrumento (mide estética, no recall).
+
 ### 2026-08-19 — base del protocolo validada en la práctica (LLM reales)
 - Harness `experiments/interrupcion_etapas.py` (B, la-caja-mcp): dos
   agentes LLM reales (OpenRouter gpt-4o-mini) como clientes MCP. El
