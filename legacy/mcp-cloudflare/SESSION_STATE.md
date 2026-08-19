@@ -10,6 +10,20 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-19 — caso de uso real: integración OK (primer uso en conjunto)
+- **Escenario de prueba en conjunto** (pre-registrado en A
+  `experiments/falsacion.md`): dos agentes MCP (`claude` y `asesor`) con
+  memoria compartida de La Caja vía `la-caja-mcp` por streamable HTTP en
+  localhost (SQLite `--caja-db`).
+- Harness: B `experiments/uso_real.py`. Veredicto **OK** (ninguna métrica
+  FALSA): `ok_memoria` True (19 términos compartidos visibles para ambos,
+  `contexto_primado("postgres")` con la señal correcta), `ok_debate` True
+  (consensus por protocolo), `ok_replay` True (reproducir_sesion idéntico),
+  `ok_push` True (12 eventos SSE). Tiempos: ingesta 0.82s, debate 0.10s.
+- Es la primera vez que se ejercita la pila completa fuera del unit test.
+  Prueba de integración: NO modifica las mediciones de calidad de la
+  memoria (ya cerradas en A).
+
 ### 2026-08-19 — independencia La-Caja / la-caja-mcp (decisión de arquitectura)
 - **Los dos proyectos siguen siendo independientes.** La-Caja (memoria)
   y `la-caja-mcp` (protocolo) son repos separados, como hoy. El protocolo
