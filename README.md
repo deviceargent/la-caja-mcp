@@ -19,6 +19,29 @@ memoria; habla con el por API y expone la Caja a agentes.
 - `smoke_http.py` — smoke test del transporte streamable HTTP.
 - `worker/` — host ASGI portable (uvicorn + Dockerfile) para el MCP remoto.
 
+## Instalación
+
+Paquete de Python estándar (`la-caja-mcp`), igual que su dependencia
+`la-caja` (repo A):
+
+```
+# Directo del repositorio (funciona hoy)
+pip install git+https://github.com/deviceargent/la-caja-mcp.git
+
+# Publicado (PyPI): una vez publicado
+pip install la-caja-mcp
+
+# Desarrollo local
+pip install .
+```
+
+Instala el ejecutable `la-caja-mcp` y las dependencias (`fastmcp`,
+`la-caja`). El worker remoto necesita el extra de hosting:
+
+```
+pip install "la-caja-mcp[host]"    # o  pip install .[host]  en el repo
+```
+
 ## Servidor MCP
 
 Un juego de tools, dos transportes:

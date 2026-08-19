@@ -5,10 +5,30 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "la-caja-mcp"
 version = "0.1.0"
-description = "Sistema MCP de acceso y debate sobre La Caja (memoria contextual). Repo B."
+description = "Sistema MCP de acceso y debate sobre La Caja (memoria contextual asociativa): tools de memoria, protocolo de debate agente-agente-humano y push SSE."
+readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+authors = [
+    { name = "Miguel Okstein", email = "deviceargent@users.noreply.github.com" },
+]
+keywords = ["mcp", "memoria", "contexto", "llm", "multiagente"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = ["fastmcp>=3"]
+
+[project.urls]
+Homepage = "https://github.com/deviceargent/la-caja-mcp"
+Repository = "https://github.com/deviceargent/la-caja-mcp"
+Documentation = "https://github.com/deviceargent/La-Caja"
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
