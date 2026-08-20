@@ -85,11 +85,47 @@ def test_claude_code_global_preserva(tmp_path, monkeypatch):
 
 
 def test_claude_desktop_apunta_a_appdata(tmp_path, monkeypatch):
+    # sin MSIX instalado, el config clasico va a %APPDATA%\\Claude
+    monkeypatch.setattr(ins, "_claude_desktop_msix_path", lambda: None)
     appdata = tmp_path / "AppData" / "Roaming"
     monkeypatch.setenv("APPDATA", str(appdata))
     comando, args = ins._comando_server()
     path = ins._write_claude_desktop("project", comando, args, "caja", None)
     assert str(appdata / "Claude" / "claude_desktop_config.json") == path
+    cfg = json.loads(open(path, encoding="utf-8").read())
+    assert "caja" in cfg["mcpServers"]
+
+
+def test_claude_desktop_msix_redirige_al_paquete(tmp_path, monkeypatch):
+    # Claude Desktop como app de la Store: %APPDATA% se redirige a
+    # LocalCache\\Roaming\\Claude dentro del paquete MSIX.
+    paquete = tmp_path / "Packages" / "Claude_pzs8sxrjxfjjc" / "LocalCache" / "Roaming" / "Claude"
+    paquete.mkdir(parents=True)
+    with open(paquete / "claude_desktop_config.json", "w", encoding="utf-8") as fh:
+        json.dump({"preferences": {"epitaxyPrefs": {}}}, fh)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData" / "Roaming"))
+    assert ins._claude_desktop_msix_path() == str(paquete / "claude_desktop_config.json")
+    assert ins._detectar_claude_desktop() is True
+    comando, args = ins._comando_server()
+    path = ins._write_claude_desktop("project", comando, args, "caja", None)
+    assert path == str(paquete / "claude_desktop_config.json")
+    cfg = json.loads(open(path, encoding="utf-8").read())
+    # no rompe las preferencias existentes del usuario
+    assert "preferences" in cfg
+    assert "caja" in cfg["mcpServers"]
+
+
+def test_claude_desktop_msix_sin_config_aun(tmp_path, monkeypatch):
+    # paquete MSIX instalado pero el usuario nunca lanzo la app: se crea el
+    # config dentro del paquete, no en %APPDATA% clasico.
+    paquete = tmp_path / "Packages" / "Claude_pzs8sxrjxfjjc" / "LocalCache" / "Roaming" / "Claude"
+    paquete.mkdir(parents=True)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData" / "Roaming"))
+    comando, args = ins._comando_server()
+    path = ins._write_claude_desktop("project", comando, args, "caja", None)
+    assert path == str(paquete / "claude_desktop_config.json")
     cfg = json.loads(open(path, encoding="utf-8").read())
     assert "caja" in cfg["mcpServers"]
 

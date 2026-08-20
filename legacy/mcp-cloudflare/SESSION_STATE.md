@@ -10,6 +10,28 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-19 — `install` detecta Claude Desktop MSIX/UWP (redirección de %APPDATA%)
+- Investigación: Claude Desktop instalado como app de la Store en esta
+  máquina (`Claude_1.32885.1.0_x64__pzs8sxrjxfjjc`). Windows NO expone
+  un registro nativo de MCPs en regedit (no hay clave; solo plumbing de
+  UWP: URL scheme `HKCU\Software\Classes\claude`, AppHost, CloudStore).
+  El "registro" real de MCPs es el archivo de config por agente.
+- Hallazgo: en MSIX, el `%APPDATA%` del proceso se redirige a
+  `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\
+  claude_desktop_config.json` — ahí lee el config el Claude Desktop
+  instalado, no en `%APPDATA%\Claude`. No hace falta tocar el dir
+  protegido `C:\Program Files\WindowsApps`.
+- Fix en `install.py`: `_claude_desktop_msix_path()` + `_claude_desktop_path()`
+  (prioridad: clasico existente > MSIX existente > paquete MSIX sin
+  config > clasico default); `_detectar_claude_desktop` reconoce el
+  paquete aunque la app nunca se lanzo.
+- Verificado real: `la-caja-mcp install --agent claude-desktop` escribio
+  `mcpServers.caja` en el config MSIX preservando `preferences` y
+  `coworkUserFilesPath` (backup `.bak` creado antes). Claude Desktop
+  queda con la-caja-mcp tras reiniciar.
+- Tests: +2 (MSIX redirige al paquete preservando prefs; paquete sin
+  config se crea ahi). Suite B completa: 46/46 (44 + 2).
+
 ### 2026-08-19 — comando `install` (la-caja-mcp): memoria en 1 paso
 - Nuevo módulo `src/la_caja_mcp/install.py` + subcomando `la-caja-mcp
   install` en `mcp_server.py`: detecta los agentes MCP instalados

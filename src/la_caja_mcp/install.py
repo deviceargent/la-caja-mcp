@@ -116,11 +116,57 @@ def _write_vscode(scope, comando, args, name, caja_db):
     return path
 
 
+def _claude_desktop_path():
+    """Ruta al claude_desktop_config.json que el Claude Desktop instalado
+    realmente lee. Prioridad:
+      1) config clasico %APPDATA%\\Claude\\claude_desktop_config.json
+      2) config MSIX (LocalCache\\Roaming\\Claude dentro del paquete)
+      3) paquete MSIX instalado sin config aun (se crea ahi)
+      4) clasico por defecto
+    """
+    home = os.path.expanduser("~")
+    clasico = os.path.join(os.environ.get("APPDATA", home), "Claude", "claude_desktop_config.json")
+    if os.path.exists(clasico):
+        return clasico
+    msix = _claude_desktop_msix_path()
+    if msix and os.path.exists(msix):
+        return msix
+    if msix:
+        return msix
+    return clasico
+
+
+def _claude_desktop_msix_path():
+    """Ubicacion del config dentro del paquete MSIX/UWP, si Claude Desktop
+    esta instalado como app de la Store. En MSIX el %APPDATA% del proceso
+    se redirige a LocalCache\\Roaming dentro del paquete."""
+    if os.name != "nt":
+        return None
+    local = os.environ.get("LOCALAPPDATA")
+    if not local:
+        return None
+    base = os.path.join(local, "Packages")
+    try:
+        dirs = os.listdir(base)
+    except OSError:
+        return None
+    for d in dirs:
+        if not d.startswith("Claude_"):
+            continue
+        cfg = os.path.join(base, d, "LocalCache", "Roaming", "Claude", "claude_desktop_config.json")
+        if os.path.exists(cfg):
+            return cfg
+    for d in dirs:
+        if not d.startswith("Claude_"):
+            continue
+        claude_dir = os.path.join(base, d, "LocalCache", "Roaming", "Claude")
+        if os.path.isdir(claude_dir) or os.path.isdir(os.path.join(base, d)):
+            return os.path.join(claude_dir, "claude_desktop_config.json")
+    return None
+
+
 def _write_claude_desktop(scope, comando, args, name, caja_db):
-    path = os.path.join(
-        os.environ.get("APPDATA", os.path.expanduser("~")),
-        "Claude", "claude_desktop_config.json",
-    )
+    path = _claude_desktop_path()
     cfg = _leer_json(path) or {}
     cfg.setdefault("mcpServers", {})[name] = _entry_claude(comando, args)
     _escribir_json(path, cfg)
@@ -184,11 +230,10 @@ def _detectar_vscode():
 
 
 def _detectar_claude_desktop():
-    if os.name != "nt":
-        return False
-    return os.path.exists(os.path.join(
-        os.environ.get("APPDATA", ""), "Claude", "claude_desktop_config.json"
-    ))
+    # presente si hay un paquete MSIX instalado, o ya existe un config clasico
+    return _claude_desktop_msix_path() is not None or os.path.exists(
+        os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Claude", "claude_desktop_config.json")
+    )
 
 
 AGENTES = [
