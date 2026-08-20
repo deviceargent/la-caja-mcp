@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "la-caja-mcp"
-version = "0.1.1"
+version = "0.1.2"
 description = "Sistema MCP de acceso y debate sobre La Caja (memoria contextual asociativa): tools de memoria, protocolo de debate agente-agente-humano y push SSE."
 readme = "README.md"
 requires-python = ">=3.10"
