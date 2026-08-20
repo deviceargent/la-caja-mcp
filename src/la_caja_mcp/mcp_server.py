@@ -39,8 +39,10 @@ import json
 import os
 import sys
 import uuid
+from typing import Annotated
 
 from fastmcp import FastMCP
+from pydantic import Field
 from starlette.requests import Request
 from starlette.responses import JSONResponse, StreamingResponse
 
@@ -157,14 +159,22 @@ async def _push_sse(request: Request):
 
 @mcp.tool
 async def crear_sesion(
-    claim: str,
-    participantes: list[str],
-    arbitro: str | None = None,
-    contexto: str = "",
-    limite_turnos: int = 3,
+    claim: Annotated[str, Field(description="El claim a debatir, en texto plano. Es el objeto del debate que los participantes deben aceptar/refutar.")],
+    participantes: Annotated[list[str], Field(description="Lista de identidades (ej. ['claude', 'asesor']). El arbitro, si se indica, se anade aparte y no juega.")],
+    arbitro: Annotated[str | None, Field(description="Identidad del humano/arbitro que puede desempatar con adjudicar. Si es None, no hay arbitro.")] = None,
+    contexto: Annotated[str, Field(description="Contexto extra opcional del debate (p. ej. memorias o notas previas). Vacio si no hay.")] = "",
+    limite_turnos: Annotated[int, Field(description="Rondas maximas de discusion antes de que el deadline venza (vence_en_turnos llega a 0). Minimo 1.")] = 3,
 ) -> dict:
-    """Crea una sesion de debate sobre un claim. Devuelve sesion_id y el
-    estado inicial. El primer movimiento es proponer(actor)."""
+    """Crea una sesion de debate sobre un claim y devuelve su estado inicial.
+
+    Es un movimiento de mutacion: crea una nueva sesion en memoria. No
+    requiere sesion previa (es la entrada del flujo). El primer movimiento
+    que debe emitir un participante es proponer(actor); si el claim ya
+    existe en otra sesion, las sesiones son independientes.
+
+    Devuelve: sesion_id (hex unico, usar en mover/estado/ultimos_eventos)
+    y el estado inicial (fase 'propuesta', sin eventos).
+    """
     async with _lock:
         sesion = Sesion(
             claim=claim,
@@ -179,10 +189,22 @@ async def crear_sesion(
 
 
 @mcp.tool
-async def mover(sesion_id: str, tipo: str, actor: str, payload: str = "") -> dict:
-    """Aplica un movimiento a la sesion. Si hay suscriptores SSE en
-    /caja/push, les emite sesion_actualizada. Devuelve el evento y el
-    estado."""
+async def mover(
+    sesion_id: Annotated[str, Field(description="Id de la sesion (el sesion_id que devolvio crear_sesion).")],
+    tipo: Annotated[str, Field(description="Movimiento: proponer | aceptar | interferir | responder | condiciones | adjudicar | supersede | retirar | escalar | manifestar. Cada tipo tiene su payload (ver payload).")],
+    actor: Annotated[str, Field(description="Identidad de quien mueve. Debe estar en participantes (o ser el arbitro para adjudicar).")],
+    payload: Annotated[str, Field(description="JSON string con las claves del tipo: interferir:{objecion}, responder:{defensa}, condiciones:{lista}, adjudicar:{decision:'consensus'|'rejected'|'unresolved'}, supersede:{reemplazo}, manifestar:{texto}. proponer/aceptar/retirar/escalar: vacio o {}.")] = "",
+) -> dict:
+    """Aplica un movimiento de debate a la sesion y devuelve el evento + estado.
+
+    Mutacion. Valida el movimiento contra la maquina de estados (si el
+    tipo no es valido en la fase actual, o el actor no corresponde,
+    devuelve ok=False con el error del protocolo). Si hay suscriptores SSE
+    en /caja/push, les emite un evento sesion_actualizada (no bloquea).
+
+    Devuelve: ok (bool), evento (el evento con seq), estado (snapshot con
+    fase, vence_en_turnos, etc.). En error: ok=False y campo error.
+    """
     async with _lock:
         try:
             sesion = _get(sesion_id)
@@ -195,9 +217,19 @@ async def mover(sesion_id: str, tipo: str, actor: str, payload: str = "") -> dic
 
 
 @mcp.tool
-async def estado(sesion_id: str) -> dict:
-    """Estado actual de la sesion mas el log completo de eventos
-    (replayable)."""
+async def estado(
+    sesion_id: Annotated[str, Field(description="Id de la sesion (el sesion_id que devolvio crear_sesion).")],
+) -> dict:
+    """Devuelve el estado actual de la sesion mas el log completo de eventos.
+
+    Lectura pura: no muta nada y no requiere estar en la ronda. Es el
+    equivalente a 'snapshot total'. Para solo los eventos nuevos desde un
+    seq, usa ultimos_eventos (mas barato); para reconstruir una sesion
+    desde un log externo, usa reproducir_sesion.
+
+    Devuelve: ok, estado (fase, claim, vence_en_turnos, participantes,
+    arbitro) y log (lista completa de eventos con seq, replayable).
+    """
     async with _lock:
         try:
             sesion = _get(sesion_id)
@@ -207,9 +239,19 @@ async def estado(sesion_id: str) -> dict:
 
 
 @mcp.tool
-async def ultimos_eventos(sesion_id: str, desde_seq: int = 0) -> dict:
-    """Eventos con seq mayor a desde_seq. Primitiva de sondeo para la
-    discusion: tras un push, un agente trae los eventos nuevos."""
+async def ultimos_eventos(
+    sesion_id: Annotated[str, Field(description="Id de la sesion (el sesion_id que devolvio crear_sesion).")],
+    desde_seq: Annotated[int, Field(description="Solo eventos con seq mayor a este numero. Usa el ultimo_seq que viste para hacer sondeo incremental. Default 0 = todos.")] = 0,
+) -> dict:
+    """Devuelve los eventos con seq mayor a desde_seq (sondeo incremental).
+
+    Lectura pura. Es la primitiva de polling para la discusion en vivo:
+    tras recibir un push SSE (o en stdio, periodicamente), trae solo lo
+    nuevo. Para el log completo usa estado; para reconstruir, reproducir_sesion.
+
+    Devuelve: ok, eventos (lista, puede ser vacia) y ultimo_seq (el max
+    seq actual, para el proximo desde_seq).
+    """
     async with _lock:
         try:
             sesion = _get(sesion_id)
@@ -220,10 +262,21 @@ async def ultimos_eventos(sesion_id: str, desde_seq: int = 0) -> dict:
 
 
 @mcp.tool
-async def reproducir_sesion(claim: str, log: str) -> dict:
-    """Reconstruye una sesion replayando un log de eventos (JSON list).
-    Verifica determinismo: el estado final debe coincidir con el que
-    produjeron los eventos originales."""
+async def reproducir_sesion(
+    claim: Annotated[str, Field(description="El claim original del debate (debe coincidir con el del log; se usa para validar el replay).")],
+    log: Annotated[str, Field(description="String JSON que es una LISTA de eventos (los que devolvio estado/ultimos_eventos). El orden importa: se replaya en secuencia.")],
+) -> dict:
+    """Reconstruye una sesion replayando un log de eventos y verifica determinismo.
+
+    Lectura pura: no crea una sesion nueva ni toca las existentes. El
+    resultado del replay debe ser identico al estado original de la sesion
+    que genero el log (disciplina event-sourcing de La Caja). Sirve para
+    auditar o reproducir un debate fuera del server.
+
+    Devuelve: ok, estado (reconstruido) y n_eventos (cuantos se
+    reprodujeron). En error: ok=False con la causa (log invalido, claim no
+    coincide, secuencia invalida).
+    """
     async with _lock:
         try:
             eventos = json.loads(log)
@@ -238,11 +291,24 @@ async def reproducir_sesion(claim: str, log: str) -> dict:
 
 
 @mcp.tool
-async def procesar_consulta(texto: str) -> dict:
-    """Ingesta: procesa una consulta humana completa en La Caja
-    (tokeniza, normaliza a conceptos canonicos, filtra y crea/reforza
-    las burbujas del contexto). Devuelve los terminos procesados y los
-    eventos de la piscina."""
+async def procesar_consulta(
+    texto: Annotated[str, Field(description="La consulta o texto crudo a ingestar en La Caja, en texto plano (ej. una frase completa del usuario o del contexto). No requiere formato especial.")],
+) -> dict:
+    """Ingesta: procesa un texto completo en La Caja y actualiza la memoria.
+
+    Mutacion: tokeniza el texto, normaliza a conceptos canonicos, filtra
+    ruido y crea/reforza las burbujas del contexto (co-ocurrencias). El
+    efecto es persistente si el server corre con --caja-db (o LA_CAJA_DB);
+    si no, es en memoria pura y se pierde al reiniciar. Requiere el
+    paquete `la-caja` instalado; si no, devuelve ok=False con el error.
+
+    Es el paso previo natural a declarar_relacion (que declara a mano lo
+    que aqui se extrae automatico). Para solo leer, usa consultar o
+    contexto_primado.
+
+    Devuelve: ok y el resultado del procesado (terminos procesados y
+    eventos de la piscina).
+    """
     caja = _get_caja()
     if caja is None:
         return {"ok": False, "error": _caja_error}
@@ -251,9 +317,20 @@ async def procesar_consulta(texto: str) -> dict:
 
 
 @mcp.tool
-async def declarar_relacion(a: str, b: str) -> dict:
-    """Declara una relacion entre dos terminos (co-ocurrencia explicita)
-    sin pasar por texto crudo. Util para scripting e integraciones."""
+async def declarar_relacion(
+    a: Annotated[str, Field(description="Primer termino de la relacion (concepto canonico, ej. 'postgres').")],
+    b: Annotated[str, Field(description="Segundo termino de la relacion (concepto canonico, ej. 'replica').")],
+) -> dict:
+    """Declara una co-ocurrencia explicita entre dos terminos sin texto crudo.
+
+    Mutacion: crea (o refuerza) la arista a-b en la memoria, sin pasar por
+    la ingesta de texto. Util para scripting e integraciones donde ya
+    sabes la relacion. Para extraer relaciones automaticamente de texto,
+    usa procesar_consulta. Para leer la confianza de una relacion, usa
+    consultar.
+
+    Devuelve: ok, a, b y eventos (los eventos de memoria generados).
+    """
     caja = _get_caja()
     if caja is None:
         return {"ok": False, "error": _caja_error}
@@ -263,9 +340,18 @@ async def declarar_relacion(a: str, b: str) -> dict:
 
 
 @mcp.tool
-async def consultar(a: str, b: str) -> dict:
-    """Confianza de la relacion entre dos terminos: 1.0 observada,
-    0.5^puentes inferida por cierre transitivo, 0.0 sin relacion."""
+async def consultar(
+    a: Annotated[str, Field(description="Primer termino (concepto canonico). Debe existir en la memoria o devuelve 0.0.")],
+    b: Annotated[str, Field(description="Segundo termino (concepto canonico). Debe existir en la memoria o devuelve 0.0.")],
+) -> dict:
+    """Devuelve la confianza de la relacion entre dos terminos.
+
+    Lectura pura, no muta nada. Confianza: 1.0 si fue observada, 0.5^puentes
+    si fue inferida por cierre transitivo, 0.0 si no hay relacion. Solo
+    mira relaciones activas (la traza dormida no cuenta; usa historial).
+
+    Devuelve: ok, a, b y confianza (float 0..1).
+    """
     caja = _get_caja()
     if caja is None:
         return {"ok": False, "error": _caja_error}
@@ -274,10 +360,23 @@ async def consultar(a: str, b: str) -> dict:
 
 
 @mcp.tool
-async def contexto_primado(termino: str, presupuesto: int = 50) -> dict:
-    """Contexto asociativo de un termino para inyectar en un modelo:
-    las relaciones observadas primero, luego el vecindario de activacion,
-    acotado al presupuesto. Mecanismo separado de la navegacion."""
+async def contexto_primado(
+    termino: Annotated[str, Field(description="Termino cuyo contexto asociativo queres (concepto canonico).")],
+    presupuesto: Annotated[int, Field(description="Cantidad maxima de relaciones a incluir en el contexto (acota el tamano del primado). Default 50.")] = 50,
+) -> dict:
+    """Devuelve el contexto asociativo de un termino para inyectar en un modelo.
+
+    Lectura pura. Es el mecanismo de primado: arma un bloque de contexto
+    con las relaciones observadas primero (mas confiables) y luego el
+    vecindario de activacion, acotado al presupuesto. Es la pieza que
+    mejoro el recall en el benchmark (soporte de memoria).
+
+    Distinto de la navegacion (consultar, que responde por termino) y de
+    historial (traza dormida). Para primar la memoria de un agente antes
+    de responder, usa esto.
+
+    Devuelve: ok, termino y primado (la estructura de contexto asociativo).
+    """
     caja = _get_caja()
     if caja is None:
         return {"ok": False, "error": _caja_error}
@@ -286,10 +385,19 @@ async def contexto_primado(termino: str, presupuesto: int = 50) -> dict:
 
 
 @mcp.tool
-async def historial(termino: str) -> dict:
-    """Traza dormida del termino (capa inerte): los partners con los que
-    co-ocurrio y fue olvidado, con su fuerza historica. No interviene en
-    consultar ni en el primado."""
+async def historial(
+    termino: Annotated[str, Field(description="Termino cuyo historial (traza dormida) queres (concepto canonico).")],
+) -> dict:
+    """Devuelve la traza dormida de un termino (capa inerte de la memoria).
+
+    Lectura pura. Muestra los partners con los que el termino co-ocurrio y
+    fue olvidado (por consolidacion), con su fuerza historica. Esta capa
+    NO participa en consultar ni en contexto_primado: es inerte hasta que
+    una re-observacion la rehidrata. Util para entender que se olvido, no
+    para recuperar contexto activo.
+
+    Devuelve: ok, termino y historial (partners dormidos con fuerza).
+    """
     caja = _get_caja()
     if caja is None:
         return {"ok": False, "error": _caja_error}
@@ -299,7 +407,14 @@ async def historial(termino: str) -> dict:
 
 @mcp.tool
 async def stats() -> dict:
-    """Dimensiones de la memoria: terminos, nodos, aristas."""
+    """Devuelve las dimensiones de la memoria (terminos, nodos, aristas).
+
+    Lectura pura, sin parametros. Sirve para monitorear el tamano de la
+    memoria. Para inspeccionar contenido puntual usa consultar,
+    contexto_primado o historial.
+
+    Devuelve: ok y dimensiones (terminos, nodos, aristas).
+    """
     caja = _get_caja()
     if caja is None:
         return {"ok": False, "error": _caja_error}
