@@ -177,6 +177,7 @@ def test_main_instala_opencode_project(tmp_path, monkeypatch):
     # la verificacion real del server tiene su propio test; aca se mockea
     # para no depender del PYTHONPATH relativo del entorno de CI
     monkeypatch.setattr(ins, "_verificar_comando", lambda *a, **k: (True, "mock"))
+    monkeypatch.setattr(ins, "detectar_presentes", lambda: [ins.AGENTES[0]])  # opencode
     assert ins.main(["--agent", "opencode", "--scope", "project", "--name", "caja"]) == 0
     cfg = json.loads(open("opencode.json", encoding="utf-8").read())
     assert "caja" in cfg["mcp"]
