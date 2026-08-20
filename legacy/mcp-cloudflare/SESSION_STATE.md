@@ -10,6 +10,19 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-20 — gráficos de barra de la evidencia en el README de La Caja (A)
+- `experiments/graficos.py` (repo A): lee los JSONs canónicos de
+  `experiments/results/` y dibuja 4 figuras en `docs/figures/`:
+  `tesis_pareada.png` (recall con/sin), `tesis_veredictos.png` (241/130/29,
+  win_rate 0.60, p=9e-43), `resumen_evidencia.png` (2x2: tesis, cloze
+  FALSA, traza dormida FALSA, primado ok), `rehidratacion.png` (+41% en
+  ventana 1-6m).
+- Referenciadas en README.md y README.es.md con URLs absolutas a
+  `raw.githubusercontent.com/.../main/docs/figures/` (renderizan en
+  GitHub y en la página de PyPI). Verificadas: HTTP 200 + cabecera PNG.
+- Suite A 53/53. Commit `96891d6` (A). Nota: el modelo no pudo inspeccionar
+  las figuras visualmente (sin soporte de imagen); el usuario las revisa.
+
 ### 2026-08-20 — publicación v0.1.1 en PyPI + CI en verde
 - `la-caja-mcp` **v0.1.1 publicado en PyPI** (tag `v0.1.1`, trusted
   publishing, workflow success; URL en el log:
