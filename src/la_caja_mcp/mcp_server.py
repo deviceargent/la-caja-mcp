@@ -37,6 +37,7 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 import uuid
 
 from fastmcp import FastMCP
@@ -311,6 +312,10 @@ app.add_route("/caja/push", _push_sse, methods=["GET"])
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "install":
+        from la_caja_mcp.install import main as install_main
+
+        raise SystemExit(install_main(sys.argv[2:]))
     parser = argparse.ArgumentParser(prog="la-caja-mcp")
     parser.add_argument(
         "--transport",

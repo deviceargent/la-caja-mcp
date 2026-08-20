@@ -10,6 +10,26 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-19 — comando `install` (la-caja-mcp): memoria en 1 paso
+- Nuevo módulo `src/la_caja_mcp/install.py` + subcomando `la-caja-mcp
+  install` en `mcp_server.py`: detecta los agentes MCP instalados
+  (opencode, Claude Code, Cursor, VS Code, Claude Desktop), escribe la
+  entrada MCP correcta de cada uno y verifica. Para el usuario promedio
+  que "instala mejor memoria" sin tocar JSON a mano.
+- Comando portable: `python -m la_caja_mcp.mcp_server --transport stdio`
+  (resuelto con sys.executable, no depende de que el exe esté en PATH).
+- Formato por agente: opencode usa `mcp.caja = {type: local, command:
+  [...], enabled}` (schema autoritativo https://opencode.ai/config.json,
+  `$schema` declarado); los demás usan `mcpServers.caja = {command,
+  args}`. opencode global: XDG_CONFIG_HOME primero, sino `~/.config/
+  opencode` (json o jsonc, respeta el existente).
+- Verificado en esta máquina: opencode detectado (config global en
+  `~/.config/opencode/opencode.jsonc`), instalación en `opencode.json`
+  del repo, y el server responde por stdio con las 11 tools (memoria +
+  debate). Claude Code NO está instalado en este equipo.
+- Tests: `tests/test_install.py` (13 casos, directorios temporales,
+  sin tocar config real). Suite B completa: 44/44 (31 + 13).
+
 ### 2026-08-19 — LA TESIS VALIDADA: benchmark pareado con/sin La Caja
 - Harness `experiments/eval_pareado_memoria.py` (A, La-Caja-testing): el
   mismo modelo (openai/gpt-4o-mini) en dos corridas — una con La Caja
