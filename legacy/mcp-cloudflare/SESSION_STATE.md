@@ -10,6 +10,19 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-20 — v0.1.2 publicado en PyPI (descripciones de tools)
+- Bump de versión a 0.1.2 (commit `24d2722`, tag `v0.1.2`): lleva a PyPI
+  las descripciones de tools mejoradas de `af3e265` (params con
+  `Annotated/Field` + docstrings con read-only/mutación).
+- CI verde (49/49) + workflow publish success (run 32339407611). PyPI
+  confirma 0.1.2 con wheel + sdist; wheel verificado con el schema nuevo.
+- Cierre de la parte de glama: licencia MIT resuelta en la API (los C/A
+  intermitentes eran caché de UI); calidad C no se persigue más (el
+  evaluador automático no correlaciona prosa con sus rúbricas).
+- Visibilidad: el usuario decidió dar por terminada la parte de
+  publicación. Reddit/HN quedan como acción suya (borradores entregados,
+  URL de HN: news.ycombinator.com/submit).
+
 ### 2026-08-20 — score de glama: descripciones de tools reescritas (repo B)
 - Glama ya indexaba `la-caja-mcp` auto (sin que el usuario publicara nada;
   mcp.so NO lo tiene, y el claim en glama lo hizo el usuario). Score de
