@@ -9,11 +9,38 @@ import sys
 from la_caja_mcp import install as ins
 
 
-def test_comando_server_portable(tmp_path):
+def test_comando_server_portable(tmp_path, monkeypatch):
+    # sin el paquete instalado (exe ausente), usa python -m con el python actual
+    monkeypatch.setattr(ins.shutil, "which", lambda _: None)
     comando, args = ins._comando_server()
     assert comando
     assert "-m" in args and "la_caja_mcp.mcp_server" in args
     assert "--transport" in args and "stdio" in args
+
+
+def test_comando_server_prefiere_exe(tmp_path, monkeypatch):
+    # con el paquete instalado, usa el ejecutable la-caja-mcp (apunta al
+    # python que tiene el modulo)
+    monkeypatch.setattr(ins.shutil, "which", lambda _: r"C:\exe\la-caja-mcp.exe")
+    comando, args = ins._comando_server()
+    assert comando == r"C:\exe\la-caja-mcp.exe"
+    assert args[0] == "--transport" and args[1] == "stdio"
+
+
+def test_verificar_comando_ok(tmp_path, monkeypatch):
+    # el comando real de este entorno arranca (el paquete esta instalado)
+    comando, args = ins._comando_server()
+    ok, detalle = ins._verificar_comando(comando, args, timeout=20)
+    assert ok, detalle
+
+
+def test_verificar_comando_falla_modulo_ausente(tmp_path, monkeypatch):
+    # comando con un modulo inexistente: falla con el mensaje de instalacion
+    ok, detalle = ins._verificar_comando(
+        sys.executable, ["-m", "modulo_inexistente_del_probe", "--transport", "stdio"], timeout=10
+    )
+    assert not ok
+    assert "pip install la-caja-mcp" in detalle
 
 
 def test_comando_server_con_caja_db(tmp_path):

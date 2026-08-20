@@ -10,6 +10,26 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-20 — `install` verifica el server antes de escribir (fix del ModuleNotFoundError de Claude)
+- Incidente real (mecanismo de control del usuario): Claude Desktop leyó
+  la config, lanzó `python -m la_caja_mcp.mcp_server` y murió con
+  ModuleNotFoundError. Causa: el `install` se había corrido desde el repo
+  con `PYTHONPATH=src`, así que `la-caja-mcp` nunca se instaló en el
+  Python313 de la config. La config estaba bien; faltaba la instalación.
+- Fix en `install.py`:
+  1. `_comando_server` ahora prefiere el exe instalado
+     (`shutil.which("la-caja-mcp")`, apunta al Python que tiene el
+     modulo); fallback `python -m` con el Python actual.
+  2. `_verificar_comando`: prueba el comando con `--help` antes de
+     escribir (argparse sale 0 si el modulo carga; muere con
+     ModuleNotFoundError si no). Si falla, `install` aborta SIN escribir
+     config y dice: `pip install la-caja-mcp`.
+- Acciones: `pip install -e .` del repo B en Python313 (import OK, exe en
+  Scripts). Config de Claude Desktop reescrita apuntando al exe, verificada.
+  Server por stdio responde 11 tools tanto con `python -m` como con el exe.
+- Tests: +4 (prefiere exe, fallback -m, verifica OK real, fallo modulo
+  ausente con mensaje). Suite B completa: 49/49 (46 + 3 netos).
+
 ### 2026-08-19 — READMEs bilingües (en + es) en ambos repos
 - Decisión del usuario: `README.md` pasa a inglés (página de PyPI en
   lengua franca) + `README.es.md` con el español, links cruzados.

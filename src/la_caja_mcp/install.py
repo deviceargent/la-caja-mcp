@@ -35,12 +35,43 @@ class Agente:
 
 
 def _comando_server(caja_db=None):
-    """Comando portable: usa python -m (no depende de que el exe este en
-    PATH). Devuelve (comando, args)."""
-    args = [sys.executable, "-m", "la_caja_mcp.mcp_server", "--transport", "stdio"]
+    """Comando portable para el server. Si el paquete esta instalado (el
+    exe en PATH), usa el exe: apunta al Python que tiene el modulo.
+    Fallback: python -m con el Python actual. Devuelve (comando, args)."""
+    exe = shutil.which("la-caja-mcp")
+    if exe:
+        args = [exe, "--transport", "stdio"]
+    else:
+        args = [sys.executable, "-m", "la_caja_mcp.mcp_server", "--transport", "stdio"]
     if caja_db:
         args += ["--caja-db", caja_db]
     return args[0], args[1:]
+
+
+def _verificar_comando(comando, args, timeout=15):
+    """Prueba que el comando del server realmente arranca el modulo y su
+    parser CLI. Con `--help` argparse responde y sale 0 si el modulo
+    carga; si el python no tiene el paquete, muere con ModuleNotFoundError
+    y se captura el stderr. El fallo tipico que se previene: escribir una
+    config cuyo python no tiene la_caja_mcp instalado. Devuelve (ok,
+    detalle)."""
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            [comando] + args + ["--help"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return False, "el comando no respondio (timeout)"
+    if proc.returncode == 0:
+        return True, "el server arranca (import + CLI OK)"
+    stderr = proc.stderr or ""
+    if "No module named" in stderr:
+        return False, "el python indicado no tiene el paquete la_caja_mcp instalado (corre: pip install la-caja-mcp)"
+    return False, (stderr.strip()[:200] or "el comando fallo al arrancar")
 
 
 def _leer_json(path):
@@ -278,6 +309,14 @@ def main(argv=None):
         return 1
 
     comando, args_server = _comando_server(args.caja_db)
+    print(f"Verificando que el server arranca: {comando} {' '.join(args_server)}")
+    ok, detalle = _verificar_comando(comando, args_server)
+    if not ok:
+        print("[error] el comando del server no arranca. La config NO se escribio.")
+        print(f"       {detalle}")
+        print("       Instala el paquete y volve a intentar: pip install la-caja-mcp")
+        return 1
+
     objetivos = presentes if not args.agent else [a for a in presentes if a.id == args.agent]
     if not objetivos:
         print(f"El agente '{args.agent}' no se detecto en este sistema.")
@@ -292,9 +331,9 @@ def main(argv=None):
             print(f"[error] {a.nombre}: {e}")
             return 1
 
-    print("Reinicia tu agente para que tome la config. En opencode la memoria")
-    print(f"queda disponible como el MCP '{args.name}' (tools procesar_consulta,")
-    print("consultar, contexto_primado, historial, stats + debate).")
+    print("Server verificado y config escrita. Reinicia tu agente para que tome")
+    print(f"la config. La memoria queda disponible como el MCP '{args.name}'")
+    print("(tools procesar_consulta, consultar, contexto_primado, historial, stats + debate).")
     return 0
 
 
