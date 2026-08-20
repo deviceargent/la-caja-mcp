@@ -10,6 +10,26 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-20 — score de glama: descripciones de tools reescritas (repo B)
+- Glama ya indexaba `la-caja-mcp` auto (sin que el usuario publicara nada;
+  mcp.so NO lo tiene, y el claim en glama lo hizo el usuario). Score de
+  calidad 58%: casi todo lo que tiraba abajo era descripciones flacas.
+- Fix en `src/la_caja_mcp/mcp_server.py` (commit `af3e265`):
+  1. **Parámetros descritos** en el schema vía `Annotated[...,
+     Field(description=...)]` (FastMCP 3.4.7 lo propaga a inputSchema) —
+     antes 0% de cobertura, ahora 100% (11 tools, todos sus params).
+  2. **Docstrings** con: read-only vs mutación explícito, side-effects,
+     error conditions, y cuándo usar cada tool vs sus hermanas
+     (estado vs ultimos_eventos vs reproducir_sesion; consultar vs
+     contexto_primado vs historial; procesar_consulta vs
+     declarar_relacion).
+- Verificado: suite B 49/49; exe instalado responde 11 tools por stdio
+  con el schema nuevo. Claude Desktop usa el exe (sin cambios de config).
+- Nota: el score de glama (Tool Definition Quality + Coherence) se
+  recalcula al re-sync desde el admin. El `license F` persiste en glama
+  aunque GitHub API reporta MIT en ambos repos — bug del índice de glama,
+  no del repo.
+
 ### 2026-08-20 — BAJA DEFINITIVA del worker Cloudflare + decisión de visibilidad
 - **Baja ejecutada** (orden documentado en la sección operativa):
   1. Consumidores verificados: ninguno activo (solo uso privado; el usuario
