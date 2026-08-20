@@ -10,6 +10,35 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-20 — BAJA DEFINITIVA del worker Cloudflare + decisión de visibilidad
+- **Baja ejecutada** (orden documentado en la sección operativa):
+  1. Consumidores verificados: ninguno activo (solo uso privado; el usuario
+     decidió la baja).
+  2. `wrangler delete --name la-caja` (wrangler 4.124.0, cuenta
+     miguel.okstein@gmail.com): `Successfully deleted la-caja`. Antes de la
+     baja el endpoint respondía `/health` 200 y `/mcp` 401 sin token
+     (autenticación por bearer, como diseño).
+  3. Secrets borrados con el worker: `CHATGPT_TOKEN`, `CLAUDE_TOKEN`,
+     `HUMAN_TOKEN`, `OAUTH_SIGNING_KEY` (verificados: `secret list` ya no
+     encuentra el worker). El storage del Durable Object se elimina con el
+     worker (no hay datos que exportar).
+  4. Post-baja: `https://la-caja.miguel-okstein.workers.dev/health` → 404.
+  El worker `la-caja` ya no existe en la cuenta. El protocolo nuevo
+  (`la-caja-mcp`, ASGI/uvicorn, repo B `worker/`) sigue siendo el host
+  portable; la decisión de NO desplegarlo en CF se mantiene.
+- **Corrección al consejo de visibilidad de Claude (externo):** Claude
+  mencionó que el repo "ya estaba indexado en mcp.so/glama.ai" — el
+  usuario no publicó nada en glama/mcp.so; fue una alucinación. Descartado.
+- **Conclusión de visibilidad (evaluación técnica, no marketshare):**
+  postear con lo que está validado (tesis pareada 19x, protocolo con
+  mecánica probada) y **declarar explícitamente el hueco**: "memoria
+  compartida → consenso más rápido" aún NO está medido (el harness valida
+  que el consensus se alcanza y es replayable, no que sea más rápido).
+  Canal propuesto: registry MCP (costo cero) → LessWrong/r/LocalLLaMA con
+  la sección "qué aún no está medido" → Show HN con título técnico. arXiv
+  solo si se quiere link permanente (el writeup ya tiene el 90%). Declarar
+  también la limitación conocida (pareado solo con gpt-4o-mini).
+
 ### 2026-08-20 — gráficos de barra de la evidencia en el README de La Caja (A)
 - `experiments/graficos.py` (repo A): lee los JSONs canónicos de
   `experiments/results/` y dibuja 4 figuras en `docs/figures/`:
