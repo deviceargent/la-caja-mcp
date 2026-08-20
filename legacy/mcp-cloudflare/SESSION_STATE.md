@@ -10,6 +10,17 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-19 — READMEs bilingües (en + es) en ambos repos
+- Decisión del usuario: `README.md` pasa a inglés (página de PyPI en
+  lengua franca) + `README.es.md` con el español, links cruzados.
+- Repo A: README.md en inglés, README.es.md creado, `docs/la_caja_v2.docx`
+  eliminado del repo (era el mismo contenido de la spec v2.0 ya en
+  `docs/La_Caja_v2.0.md`, sin referencias). `ARCHITECTURE.md` solo
+  referenciaba los `.md`, intacto.
+- Repo B: README.md en inglés + README.es.md; ambos ahora documentan el
+  comando `la-caja-mcp install` (faltaba) y actualizan el conteo de tests
+  (46, no 31). Suites intactas: A 53/53, B 46/46.
+
 ### 2026-08-19 — `install` detecta Claude Desktop MSIX/UWP (redirección de %APPDATA%)
 - Investigación: Claude Desktop instalado como app de la Store en esta
   máquina (`Claude_1.32885.1.0_x64__pzs8sxrjxfjjc`). Windows NO expone

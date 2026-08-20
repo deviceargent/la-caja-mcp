@@ -1,119 +1,145 @@
 # la-caja-mcp
 
-Sistema MCP de acceso y debate sobre **La Caja** (memoria contextual).
-Repo B: consumidor de La Caja (repo A). Este repo no toca el nucleo de
-memoria; habla con el por API y expone la Caja a agentes.
+MCP system for access and debate over **La Caja** (contextual memory).
+Repo B: consumer of La Caja (repo A). This repo does not touch the memory
+core; it talks to it by API and exposes La Caja to agents.
 
-## Que hay aca
+Español: [README.es.md](README.es.md)
 
-- `src/la_caja_mcp/protocolo.py` — protocolo de debate agente-agente-humano.
-  Claims, solicitud de interferencia, rondas con deadline en turnos,
-  escalada y adjudicacion humana. Determinista y replayable
-  (event-sourcing, misma disciplina que La Caja). La maquina de estados
-  es un contrato: en `disputed` el autor solo puede responder o escalar;
-  `unresolved` (deadlock) es el UNICO terminal que el humano puede
-  adjudicar.
-- `src/la_caja_mcp/mcp_server.py` — servidor MCP: tools del debate + tools
-  de memoria de La Caja (repo A, consumido por API), un solo juego de
-  tools y dos transportes (stdio local / streamable HTTP remoto).
-- `tests/` — falsacion de la maquina de estados + integracion con cliente
-  MCP real por stdio (debate y memoria) + push SSE multiagente (31 tests).
-- `experiments/uso_real.py` — caso de uso real: dos agentes LLM como
-  clientes MCP (memoria compartida, debate, replay, push).
-- `experiments/interrupcion_etapas.py` — la base del protocolo: un agente
-  al medio del razonamiento acepta ser interrumpido y cede dentro de la
-  ronda.
-- `worker/` — host ASGI portable (uvicorn + Dockerfile) para el MCP remoto.
+## What's here
 
-## Validado con LLM reales (OpenRouter, gpt-4o-mini, por streamable HTTP)
+- `src/la_caja_mcp/protocolo.py` — agent–agent–human debate protocol.
+  Claims, interference requests, deadline rounds in turns, escalation and
+  human adjudication. Deterministic and replayable (event-sourcing, same
+  discipline as La Caja). The state machine is a contract: in `disputed`
+  the author can only respond or escalate; `unresolved` (deadlock) is the
+  ONLY terminal the human can adjudicate.
+- `src/la_caja_mcp/mcp_server.py` — MCP server: debate tools + La Caja
+  memory tools (repo A, consumed by API), one tool set and two transports
+  (local stdio / remote streamable HTTP).
+- `src/la_caja_mcp/install.py` — one-command installer: detects the
+  installed MCP agents and writes the correct config entry for each
+  (opencode, Claude Code, Cursor, VS Code, Claude Desktop).
+- `tests/` — falsification of the state machine + integration with a real
+  MCP client over stdio (debate and memory) + multi-agent SSE push (46
+  tests).
+- `experiments/uso_real.py` — real use case: two LLM agents as MCP
+  clients (shared memory, debate, replay, push).
+- `experiments/interrupcion_etapas.py` — the protocol's basis: an agent
+  mid-reasoning accepts being interrupted and yields within the round.
+- `worker/` — portable ASGI host (uvicorn + Dockerfile) for the remote
+  MCP.
 
-| Validación | Resultado |
+## Validated with real LLMs (OpenRouter, gpt-4o-mini, over streamable HTTP)
+
+| Validation | Result |
 |---|---|
-| Caso de uso real (2 agentes MCP, memoria compartida) | **OK** — consensus, replay, push |
-| Solicitud de interferencia completa (deadline → escalar → humano) | **OK** |
-| **Interrupción al medio del razonamiento** | **OK** — `proponer → manifestar → interferir → responder → aceptar` |
+| Real use case (2 MCP agents, shared memory) | **OK** — consensus, replay, push |
+| Full interference request (deadline → escalate → human) | **OK** |
+| **Interruption mid-reasoning** | **OK** — `proponer → manifestar → interferir → responder → aceptar` |
 
-La base del protocolo funciona: el autor expone su razonamiento por
-etapas con `manifestar` (el medio de interrupción), consulta el estado
-entre etapas, el interferente solicita `interferir` al medio, y el
-interrumpido cede respondiendo dentro de la ronda (vence_en_turnos
-intacto). Detalle del diseño y sus límites en el writeup de La Caja
-(`experiments/writeup.md`, repo A).
+The protocol basis works: the author exposes its reasoning in stages with
+`manifestar` (the interruption medium), checks the state between stages,
+the interferer requests `interferir` mid-way, and the interrupted yields
+by responding within the round (`vence_en_turnos` intact). Design detail
+and limits in the La Caja writeup (`experiments/writeup.md`, repo A).
 
-## Instalación
+## Installation
 
-Paquete de Python estándar (`la-caja-mcp`), igual que su dependencia
-`la-caja` (repo A):
+Standard Python package (`la-caja-mcp`), like its dependency `la-caja`
+(repo A):
 
 ```
-# Directo del repositorio (funciona hoy)
+# Direct from the repository (works today)
 pip install git+https://github.com/deviceargent/la-caja-mcp.git
 
-# Publicado (PyPI): una vez publicado
+# Published (PyPI)
 pip install la-caja-mcp
 
-# Desarrollo local
+# Local development
 pip install .
 ```
 
-Instala el ejecutable `la-caja-mcp` y las dependencias (`fastmcp`,
-`la-caja`). El worker remoto necesita el extra de hosting:
+Installs the `la-caja-mcp` executable and the dependencies (`fastmcp`,
+`la-caja`). The remote worker needs the hosting extra:
 
 ```
-pip install "la-caja-mcp[host]"    # o  pip install .[host]  en el repo
+pip install "la-caja-mcp[host]"    # or  pip install .[host]  in the repo
 ```
 
-## Servidor MCP
+## One-command install (agents)
 
-Un juego de tools, dos transportes:
+For the average user who wants "better memory" without hand-editing JSON:
 
 ```
-# local (stdio): lo lanza el agente como subproceso
+la-caja-mcp install                # detects agents and registers everywhere
+la-caja-mcp install --agent opencode
+la-caja-mcp install --scope global # user-wide config instead of project
+la-caja-mcp install --name caja    # entry name (default: caja)
+la-caja-mcp install --caja-db <path>   # persistent memory for the server
+la-caja-mcp install --list         # only list detected agents
+```
+
+It detects the installed agents and writes the config entry each one
+reads: opencode (`opencode.json`), Claude Code (`.mcp.json` /
+`~/.claude.json`), Cursor (`.cursor/mcp.json`), VS Code (`.vscode/mcp.json`),
+Claude Desktop (`claude_desktop_config.json`, including the MSIX/UWP case,
+where the app redirects `%APPDATA%` into the package). The server command
+is resolved portably with the running Python (`python -m
+la_caja_mcp.mcp_server --transport stdio`). Restart your agent to pick the
+config up.
+
+## MCP server
+
+One tool set, two transports:
+
+```
+# local (stdio): launched by the agent as a subprocess
 la-caja-mcp --transport stdio
 
-# remoto (streamable HTTP): unico standard para MCP sobre red
+# remote (streamable HTTP): the standard for MCP over the network
 la-caja-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
-Debate: `crear_sesion`, `mover` (payload JSON), `estado`,
+Debate: `crear_sesion`, `mover` (JSON payload), `estado`,
 `ultimos_eventos`, `reproducir_sesion`.
-Memoria (requiere `pip install la-caja`; repo A): `procesar_consulta`,
+Memory (needs `pip install la-caja`; repo A): `procesar_consulta`,
 `declarar_relacion`, `consultar`, `contexto_primado`, `historial`
-(traza dormida, capa inerte), `stats`.
+(dormant trace, inert layer), `stats`.
 
-La memoria es persistente con `--caja-db <ruta>` (SQLite, event-sourcing
-de La Caja) o `LA_CAJA_DB`; sin eso, en memoria pura.
+Memory is persistent with `--caja-db <path>` (SQLite, La Caja
+event-sourcing) or `LA_CAJA_DB`; without it, pure in-memory.
 
-## Discusion en vivo (push)
+## Live discussion (push)
 
-En streamable HTTP el server expone ademas un endpoint SSE:
+Over streamable HTTP the server also exposes an SSE endpoint:
 
 ```
 GET /caja/push?sesion_id=<id>
 ```
 
-Emite un evento `estado` (snapshot: `ultimo_seq` + `estado`) al conectar
-y luego un `sesion_actualizada` por cada `mover()` exitoso. Un agente se
-suscribe con una conexion HTTP aparte (cualquier stack) y usa
-`ultimos_eventos` para traer el detalle. Requiere server compartido: en
-stdio cada agente tiene su propio proceso, ahi la vivacidad es por
-sondeo con `ultimos_eventos`.
+Emits an `estado` event (snapshot: `ultimo_seq` + `estado`) on connect
+and then a `sesion_actualizada` per successful `mover()`. An agent
+subscribes with a separate HTTP connection (any stack) and uses
+`ultimos_eventos` to fetch the detail. Needs a shared server: over stdio
+each agent has its own process, there liveliness comes from polling with
+`ultimos_eventos`.
 
-## Transportes MCP (decision de arquitectura)
+## MCP transports (architecture decision)
 
-- Local = `stdio` (el agente lanza el server como subproceso).
-- Remoto = **streamable HTTP** (unico standard para MCP remoto, + OAuth).
-- `worker/` es ejemplo de host desplegable (VPS/Docker); no hay MCP
-  publico hosteado.
+- Local = `stdio` (the agent launches the server as a subprocess).
+- Remote = **streamable HTTP** (the standard for remote MCP, + OAuth).
+- `worker/` is an example of a deployable host (VPS/Docker); there is no
+  public hosted MCP.
 
-## Probar
+## Test
 
 ```
 $env:PYTHONPATH="src"; python -m pytest tests -q
-python experiments/uso_real.py                    # requiere OPENAI_API_KEY
-python experiments/interrupcion_etapas.py         # requiere OPENAI_API_KEY
+python experiments/uso_real.py                    # needs OPENAI_API_KEY
+python experiments/interrupcion_etapas.py         # needs OPENAI_API_KEY
 ```
 
-## Licencia
+## License
 
-MIT — ver [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
