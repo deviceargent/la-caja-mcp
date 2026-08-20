@@ -171,8 +171,6 @@ def _claude_desktop_msix_path():
     """Ubicacion del config dentro del paquete MSIX/UWP, si Claude Desktop
     esta instalado como app de la Store. En MSIX el %APPDATA% del proceso
     se redirige a LocalCache\\Roaming dentro del paquete."""
-    if os.name != "nt":
-        return None
     local = os.environ.get("LOCALAPPDATA")
     if not local:
         return None

@@ -159,6 +159,10 @@ def test_push_sse():
         finally:
             stop.set()
             proc.terminate()
-            proc.wait(timeout=10)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
 
     asyncio.run(run())
