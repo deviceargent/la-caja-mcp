@@ -10,6 +10,30 @@
 Orden cronológico, más reciente primero. Cada entrada referencia el
 repo/commit donde vive el cambio.
 
+### 2026-08-20 — publicación v0.1.1 en PyPI + CI en verde
+- `la-caja-mcp` **v0.1.1 publicado en PyPI** (tag `v0.1.1`, trusted
+  publishing, workflow success; URL en el log:
+  pypi.org/project/la-caja-mcp/0.1.1/). Incluye el comando `install`
+  verificado, el soporte MSIX/UWP y los READMEs bilingües. Wheel
+  verificado local: contiene `la_caja_mcp/install.py`, `mcp_server.py`,
+  `protocolo.py`.
+- Verificación de cuentas PyPI del usuario (dos cuentas, testing + final):
+  no hay duplicados ni nombres "testing" en el índice (los 5 candidatos
+  dan 404); `la-caja` y `la-caja-mcp` están publicados bajo sus nombres
+  reales. El uploader figura None porque la publicación es por OIDC
+  (trusted publishing), no por usuario.
+- El CI (`ci.yml`, ubuntu-latest) fallaba por 4 motivos, todos arreglados:
+  1. `_claude_desktop_msix_path` tenía `if os.name != "nt": return None`,
+     que hacía fallar los tests MSIX en Linux (el fallback usa
+     LOCALAPPDATA, portable). Se quitó el guard.
+  2. `test_main_instala_opencode_project` asumía el PYTHONPATH relativo
+     del entorno local; ahora mockea `_verificar_comando` y
+     `detectar_presentes` (la verificación real tiene su propio test).
+  3. `test_push_sse`: teardown robusto (terminate → wait 5s → kill).
+  Resultado: **CI verde, suite 49/49**.
+- Commits: `a77c86d` release v0.1.1, `0af4d02` fixes CI (guard OS +
+  teardown push), `dffedba` fix test de main (detección mockeada).
+
 ### 2026-08-20 — `install` verifica el server antes de escribir (fix del ModuleNotFoundError de Claude)
 - Incidente real (mecanismo de control del usuario): Claude Desktop leyó
   la config, lanzó `python -m la_caja_mcp.mcp_server` y murió con
